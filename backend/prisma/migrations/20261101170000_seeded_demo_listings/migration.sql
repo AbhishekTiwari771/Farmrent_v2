@@ -1,0 +1,2 @@
+ALTER TABLE "Equipment"
+ADD COLUMN "isSeededDemo" BOOLEAN NOT NULL DEFAULT false;

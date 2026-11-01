@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+enum UserRole {
+  FARMER
+  OWNER
+  ADMIN
+}
+
+enum EquipmentStatus {
+  DRAFT
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  INACTIVE
+}
+
+enum BookingStatus {
+  DRAFT
+  PENDING_PAYMENT
+  PAYMENT_FAILED
+  PENDING_OWNER_APPROVAL
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  ACTIVE
+  COMPLETED
+  DISPUTED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum DeliveryMode {
+  PICKUP
+  DELIVERY
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUND_PENDING
+  REFUNDED
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSED
+  FAILED
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSING
+  PAID
+  HELD
+}
+
+model User {
+  id String @id @default(uuid()) @db.Uuid
+  clerkId String @unique
+  email String @unique
+  name String
+  phone String?
+  roles UserRole[] @default([FARMER])
+  district String?
+  state String?
+  isVerified Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  equipment Equipment[]
+  bookings Booking[]
+  reviews Review[]
+  favorites Favorite[]
+  settlements OwnerSettlement[]
+  notifications Notification[]
+  @@index([createdAt])
+}
+
+model Category {
+  id String @id @default(uuid()) @db.Uuid
+  name String @unique
+  slug String @unique
+  equipment Equipment[]
+}
+
+model Equipment {
+  id String @id @default(uuid()) @db.Uuid
+  ownerId String @db.Uuid
+  categoryId String @db.Uuid
+  name String
+  brand String?
+  model String?
+  description String
+  dailyRate Decimal @db.Decimal(10,2)
+  deliveryFee Decimal @default(0) @db.Decimal(10,2)
+  securityDeposit Decimal @default(0) @db.Decimal(10,2)
+  condition String
+  fuelType String?
+  horsepower Int?
+  year Int?
+  district String
+  state String
+  latitude Decimal? @db.Decimal(10,7)
+  longitude Decimal? @db.Decimal(10,7)
+  status EquipmentStatus @default(DRAFT)
+  isSeededDemo Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  owner User @relation(fields:[ownerId],references:[id],onDelete:Restrict)
+  category Category @relation(fields:[categoryId],references:[id],onDelete:Restrict)
+  images EquipmentImage[]
+  availabilities Availability[]
+  bookings Booking[]
+  reviews Review[]
+  favorites Favorite[]
+  @@index([status,categoryId,district,state])
+  @@index([ownerId,status])
+  @@index([dailyRate])
+}
+
+model EquipmentImage {
+  id String @id @default(uuid()) @db.Uuid
+  equipmentId String @db.Uuid
+  url String
+  publicId String
+  position Int @default(0)
+  equipment Equipment @relation(fields:[equipmentId],references:[id],onDelete:Cascade)
+  @@index([equipmentId,position])
+}
+
+model Availability {
+  id String @id @default(uuid()) @db.Uuid
+  equipmentId String @db.Uuid
+  startDate DateTime @db.Date
+  endDate DateTime @db.Date
+  isAvailable Boolean @default(true)
+  equipment Equipment @relation(fields:[equipmentId],references:[id],onDelete:Cascade)
+  @@index([equipmentId,startDate,endDate])
+}
+
+model Booking {
+  id String @id @default(uuid()) @db.Uuid
+  farmerId String @db.Uuid
+  equipmentId String @db.Uuid
+  startDate DateTime @db.Date
+  endDate DateTime @db.Date
+  deliveryMode DeliveryMode @default(PICKUP)
+  deliveryAddress String?
+  rentalNotes String?
+  status BookingStatus @default(DRAFT)
+  baseRental Decimal @db.Decimal(10,2)
+  deliveryFee Decimal @default(0) @db.Decimal(10,2)
+  platformFee Decimal @default(0) @db.Decimal(10,2)
+  taxes Decimal @default(0) @db.Decimal(10,2)
+  discount Decimal @default(0) @db.Decimal(10,2)
+  securityDeposit Decimal @default(0) @db.Decimal(10,2)
+  total Decimal @db.Decimal(10,2)
+  currency String @default("INR")
+  expiresAt DateTime?
+  farmerArchivedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  farmer User @relation(fields:[farmerId],references:[id],onDelete:Restrict)
+  equipment Equipment @relation(fields:[equipmentId],references:[id],onDelete:Restrict)
+  payments Payment[]
+  refunds Refund[]
+  settlement OwnerSettlement?
+  reviews Review[]
+  @@index([equipmentId,status,startDate,endDate])
+  @@index([farmerId,createdAt])
+  @@index([farmerId,farmerArchivedAt,createdAt])
+  @@index([expiresAt])
+}
+
+model Payment {
+  id String @id @default(uuid()) @db.Uuid
+  bookingId String @db.Uuid
+  userId String @db.Uuid
+  razorpayOrderId String @unique
+  razorpayPaymentId String? @unique
+  amount Decimal @db.Decimal(10,2)
+  currency String @default("INR")
+  status PaymentStatus @default(CREATED)
+  gatewayReference Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  booking Booking @relation(fields:[bookingId],references:[id],onDelete:Restrict)
+  @@index([bookingId,status])
+  @@index([userId,createdAt])
+}
+
+model PaymentWebhookEvent {
+  id String @id @default(uuid()) @db.Uuid
+  razorpayEventId String @unique
+  event String
+  payload Json
+  receivedAt DateTime @default(now())
+  processedAt DateTime?
+  @@index([event,receivedAt])
+}
+
+model Refund {
+  id String @id @default(uuid()) @db.Uuid
+  bookingId String @db.Uuid
+  razorpayRefundId String? @unique
+  amount Decimal @db.Decimal(10,2)
+  reason String
+  status RefundStatus @default(PENDING)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  booking Booking @relation(fields:[bookingId],references:[id],onDelete:Restrict)
+  @@index([bookingId,status])
+}
+
+model OwnerSettlement {
+  id String @id @default(uuid()) @db.Uuid
+  bookingId String @unique @db.Uuid
+  ownerId String @db.Uuid
+  gross Decimal @db.Decimal(10,2)
+  platformFee Decimal @db.Decimal(10,2)
+  refundAmount Decimal @default(0) @db.Decimal(10,2)
+  netAmount Decimal @db.Decimal(10,2)
+  status SettlementStatus @default(PENDING)
+  paidAt DateTime?
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields:[bookingId],references:[id],onDelete:Restrict)
+  owner User @relation(fields:[ownerId],references:[id],onDelete:Restrict)
+  @@index([ownerId,status,createdAt])
+}
+
+model Review {
+  id String @id @default(uuid()) @db.Uuid
+  bookingId String @db.Uuid
+  equipmentId String @db.Uuid
+  userId String @db.Uuid
+  rating Int
+  body String?
+  createdAt DateTime @default(now())
+  booking Booking @relation(fields:[bookingId],references:[id],onDelete:Restrict)
+  equipment Equipment @relation(fields:[equipmentId],references:[id],onDelete:Restrict)
+  user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+  @@unique([bookingId,userId])
+  @@index([equipmentId,createdAt])
+}
+
+model Notification {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  type String
+  title String
+  body String
+  readAt DateTime?
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  @@index([userId,readAt,createdAt])
+}
+
+model Favorite {
+  userId String @db.Uuid
+  equipmentId String @db.Uuid
+  createdAt DateTime @default(now())
+  user User @relation(fields:[userId],references:[id],onDelete:Cascade)
+  equipment Equipment @relation(fields:[equipmentId],references:[id],onDelete:Cascade)
+  @@id([userId,equipmentId])
+  @@index([equipmentId])
+}
+
+model AIConversation {
+  id String @id @default(uuid()) @db.Uuid
+  clerkId String
+  title String?
+  createdAt DateTime @default(now())
+  messages AIMessage[]
+  @@index([clerkId,createdAt])
+}
+
+model AIMessage {
+  id String @id @default(uuid()) @db.Uuid
+  conversationId String @db.Uuid
+  role String
+  content String
+  createdAt DateTime @default(now())
+  conversation AIConversation @relation(fields:[conversationId],references:[id],onDelete:Cascade)
+  @@index([conversationId,createdAt])
+}
+
+model AuditLog {
+  id String @id @default(uuid()) @db.Uuid
+  actorClerkId String?
+  action String
+  resourceType String
+  resourceId String?
+  metadata Json?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  @@index([actorClerkId,createdAt])
+  @@index([resourceType,resourceId,createdAt])
+}

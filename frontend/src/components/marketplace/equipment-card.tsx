@@ -1,0 +1,17 @@
+"use client";
+import Image from "next/image";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { Heart, MapPin, Star, BadgeCheck, ArrowUpRight } from "lucide-react";
+import type { Equipment } from "@/lib/equipment";
+
+export function EquipmentCard({item}:{item:Equipment}){
+  const [saved,setSaved]=useState(false);
+  useEffect(()=>{const savedIds=JSON.parse(localStorage.getItem("farmrent:favorites")||"[]") as string[];setSaved(savedIds.includes(item.id));},[item.id]);
+  const toggleSaved=()=>{const ids=JSON.parse(localStorage.getItem("farmrent:favorites")||"[]") as string[];const next=saved?ids.filter(id=>id!==item.id):[...new Set([...ids,item.id])];localStorage.setItem("farmrent:favorites",JSON.stringify(next));setSaved(!saved);window.dispatchEvent(new CustomEvent("farmrent:favorites-changed",{detail:next}));};
+  const badge=item.isDemo?"Photo example":item.isSeededDemo?"Seeded demo listing":item.badge;
+  return <article className="lift overflow-hidden rounded-[20px] border border-[#e8ede7] bg-white">
+    <div className="relative h-[205px] overflow-hidden bg-[#edf2ec]"><Image src={item.image} alt={`${item.name} equipment photo`} fill sizes="(max-width: 700px) 100vw, (max-width: 1100px) 50vw, 33vw" className="object-cover transition duration-500 hover:scale-[1.04]"/><div className="absolute inset-0 bg-gradient-to-t from-black/25 to-transparent"/>{badge&&<span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-[10px] font-bold text-[#35593b]">{badge}</span>}<button onClick={toggleSaved} className="absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-full bg-white/90 text-[#435046] transition hover:text-rose-600" aria-label={saved?"Remove from saved":"Save equipment"} aria-pressed={saved}><Heart size={16} fill={saved?"currentColor":"none"}/></button></div>
+    <div className="p-4"><div className="mb-2 flex items-center justify-between gap-3"><span className="text-[10px] font-bold uppercase tracking-[.12em] text-[#6a776c]">{item.category}</span>{item.isDemo?<span className="text-[10px] font-medium text-[#879188]">Illustrative only</span>:item.rating>0?<span className="flex items-center gap-1 text-xs font-semibold"><Star size={13} className="fill-[#e8a82e] text-[#e8a82e]"/>{item.rating}<span className="font-normal text-[#879188]">({item.reviews})</span></span>:<span className="text-[10px] font-medium text-[#879188]">No reviews yet</span>}</div><h3 className="min-h-[46px] text-[15px] font-bold leading-[1.45]">{item.name}</h3><p className="mt-1 flex items-center gap-1.5 text-xs text-[#78837a]"><MapPin size={13}/>{item.isDemo?"Example location":item.location}{!item.isDemo&&item.badge?.includes("verified")&&<BadgeCheck size={14} className="ml-auto text-[#4d7c0f]"/>}</p><div className="mt-4 flex items-end justify-between border-t border-[#edf0ec] pt-3.5"><div>{item.isDemo?<span className="text-sm font-semibold text-[#738075]">Not available to rent</span>:<><span className="font-[Manrope] text-xl font-extrabold tracking-tight">₹{item.dailyRate.toLocaleString("en-IN")}</span><span className="text-xs text-[#778178]"> / day</span></>}</div><Link href={`/equipment/${item.id}`} className="inline-flex items-center gap-1.5 rounded-full border border-[#dbe6db] px-3.5 py-2 text-xs font-semibold text-[#31553a] transition hover:border-[#166534] hover:bg-[#f4f8f2]">{item.isDemo?"View example":"View details"} <ArrowUpRight size={13}/></Link></div></div>
+  </article>
+}
