@@ -21,6 +21,20 @@ The six seeded records use fictional sample owners and indicative sample rates. 
 
 Requirements: Node.js 20+, npm 10+, Python 3.11+ for the AI service.
 
+### Configure environment files
+
+Create local environment files from the examples. Run these commands from the repository root:
+
+```bash
+cp frontend/.env.example frontend/.env
+cp backend/.env.example backend/.env
+cp ai-service/.env.example ai-service/.env
+```
+
+Fill in the values in each file using the service-specific notes below. The frontend file contains only the Clerk publishable key and local API routing settings. Keep private keys, database URLs, and provider secrets in `backend/.env` or `ai-service/.env` as appropriate. Never put secrets in `NEXT_PUBLIC_*` variables, commit a real `.env` file, or paste secret values into chat.
+
+For local AI-to-backend authentication, generate a random secret (for example, with `openssl rand -hex 32`) and set the same `AI_SERVICE_API_KEY` value in both `backend/.env` and `ai-service/.env`. Keep the generated value private. `AI_API_KEY` in `ai-service/.env` is optional; without it, the assistant uses its grounded marketplace fallback.
+
 ```bash
 npm install
 npm run dev
@@ -37,7 +51,7 @@ uvicorn app.main:app --reload --port 8000
 
 The signed-in Farmer workspace links to **AI assistant** at `/farmer/assistant`, and the floating FarmRent AI button opens it site-wide. The assistant searches active listings, ranks them by equipment, budget, location, crop, and acreage, and can use an LLM for conversational answers grounded in those listings. It does not claim date availability; the booking flow checks dates. For local use, set `FARMRENT_API_URL` and `AI_API_KEY` in `ai-service/.env`; `AI_API_BASE_URL` defaults to OpenAI's API and `AI_MODEL` can select a model available to that key. For a Neon AI Gateway key, set `AI_API_BASE_URL` to the branch gateway's `/openai/v1` endpoint and `AI_MODEL` to an enabled catalog model. Keep the provider key only in `ai-service/.env` or the AI host's secret settings; never add it to `frontend/.env` or browser code. The signed-in frontend calls the Express API, which proxies to the AI service using the private matching `AI_SERVICE_API_KEY` configured in `backend/.env` and `ai-service/.env`. Set `AI_SERVICE_URL` in `backend/.env` for a deployed AI service. The chat endpoint falls back to grounded marketplace answers when `AI_API_KEY` is empty; recommendations continue to work without an LLM key. Predictive rental pricing and demand forecasting remain later AI milestones.
 
-Copy `.env.example` files as needed. External integrations (Clerk, Neon, Razorpay, Cloudinary, Resend, and an LLM provider) require credentials. Keep Razorpay Key Secret and Webhook Secret in backend/.env; only test mode keys should be used for the college demo.
+External integrations (Clerk, Neon, Razorpay, Cloudinary, Resend, and an LLM provider) require credentials. Add each credential only to the service-specific local `.env` file or the corresponding deployment host's secret settings. Keep Razorpay Key Secret and Webhook Secret in `backend/.env`; only test mode keys should be used for the college demo.
 
 For the database, set Neon’s pooled application URL as `DATABASE_URL` and its direct connection URL as `DATABASE_URL_UNPOOLED` in `backend/.env`. Prisma uses the direct URL for migrations and the pooled URL for regular application traffic. Then run:
 
